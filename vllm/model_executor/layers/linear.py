@@ -452,8 +452,9 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
 
             use_bitsandbytes = getattr(param, "use_bitsandbytes", False)
             if use_bitsandbytes:
-                shard_size = loaded_weight.shape[output_dim]
-                shard_offset = loaded_weight.shape[output_dim] * \
+                tp_size = get_tensor_model_parallel_world_size()
+                shard_size = (loaded_weight.shape[output_dim] // tp_size)
+                shard_offset = (loaded_weight.shape[output_dim] // tp_size) * \
                     loaded_shard_id
 
             param_data = param_data.narrow(output_dim, shard_offset,
