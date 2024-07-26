@@ -91,6 +91,17 @@ class BitsAndBytesLinearMethod(LinearMethodBase):
             raise ValueError(
                 "The input size is not aligned with the quantized "
                 "weight shape. ")
+        # This is super suspicious, and I think this is probably why we see
+        #   (VllmWorkerProcess pid=10108) ERROR 07-25 09:49:24 multiproc_worker_utils.py:226]
+        #   Exception in worker VllmWorkerProcess while processing method determine_num_available_blocks:
+        #   split_with_sizes expects split_sizes to sum exactly to 20480 (input tensor's size at dimension -1),
+        #   but got split_sizes=[2048, 256, 256]
+        # when running
+        #   vllm serve hugging-quants/Meta-Llama-3.1-8B-Instruct-BNB-NF4 --quantization bitsandbytes --load-format bitsandbytes --max-model-len 16384 --tensor-parallel-size 8
+        # In vllm.model_executor.layers.linear.UnquantizedLinearMethod, we see
+        #   torch.empty(sum(output_partition_sizes), input_size_per_partition, dtype=params_dtype)
+        # whereas here it's equivalent to
+        #   torch.empty(input_size_per_partition * sum(output_partition_sizes), 1, dtype=params_dtype)
         qweight = Parameter(
             torch.empty(
                 input_size_per_partition * sum(output_partition_sizes) //
